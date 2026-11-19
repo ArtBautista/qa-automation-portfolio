@@ -1,12 +1,14 @@
 """Content Portal: a small CMS-style Flask app used as the system under test (SUT).
-Run locally: python app/portal.py
+
+Run locally:   python app/portal.py
 Production-ish: waitress-serve --host=127.0.0.1 --port=5000 app.portal:app
-Planted bugs: set PORTAL_BUGS=1 before starting (used on Day 4).
+Planted bugs:  set PORTAL_BUGS=1 before starting (used on Day 4).
 """
 import os
 import sqlite3
 import time
 from functools import wraps
+
 from flask import (
     Flask,
     abort,
@@ -32,17 +34,18 @@ TOKEN_MAX_AGE = 3600
 MAX_FAILED_LOGINS = 5
 LOCKOUT_SECONDS = 300
 VALID_STATUSES = ("draft", "published")
+
 app = Flask(__name__)
 app.config.update(
     SECRET_KEY=os.environ.get("PORTAL_SECRET", "dev-only-change-me"),
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE="Lax",
 )
-
 serializer = URLSafeTimedSerializer(app.config["SECRET_KEY"], salt="api-token")
-failed_logins = {} # username -> (failure_count, first_failure_timestamp)
+failed_logins = {}  # username -> (failure_count, first_failure_timestamp)
+
 SCHEMA = """
-    CREATE TABLE IF NOT EXISTS users (
+CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
@@ -66,6 +69,8 @@ SEED_ARTICLES = [
     ("Exam Preparation Tips", "Plan your revision and practise past papers.", "published"),
     ("Draft: Upcoming Features", "Internal notes for the next release.", "draft"),
 ]
+
+
 # ---------------------------------------------------------------- database
 def get_db():
     if "db" not in g:
@@ -73,11 +78,13 @@ def get_db():
         g.db.row_factory = sqlite3.Row
     return g.db
 
+
 @app.teardown_appcontext
 def close_db(_exc):
     db = g.pop("db", None)
     if db is not None:
         db.close()
+
 
 def init_db():
     with app.app_context():
@@ -97,8 +104,12 @@ def init_db():
                     (title, body, status, time.time()),
                 )
             db.commit()
+
+
 def find_article(article_id):
     return get_db().execute("SELECT * FROM articles WHERE id = ?", (article_id,)).fetchone()
+
+
 # ---------------------------------------------------------------- auth
 def authenticate(username, password):
     """Return (user_row, error_message, http_status)."""
@@ -115,6 +126,7 @@ def authenticate(username, password):
     failed_logins[username] = (count + 1, first_failure or time.time())
     return None, "Invalid username or password.", 401
 
+
 def token_claims():
     """Return (claims, error_code). claims is None when the token is missing or bad."""
     header = request.headers.get("Authorization", "")
@@ -126,19 +138,25 @@ def token_claims():
         return None, "token_expired"
     except BadSignature:
         return None, "invalid_token"
+
+
 def require_token(role=None):
     def decorator(view):
         @wraps(view)
         def wrapped(*args, **kwargs):
-                claims, error = token_claims()
-                if claims is None:
-                    return jsonify(error=error), 401
-                if role and claims.get("role") != role:
-                    return jsonify(error="forbidden"), 403
-                g.claims = claims
-                return view(*args, **kwargs)
+            claims, error = token_claims()
+            if claims is None:
+                return jsonify(error=error), 401
+            if role and claims.get("role") != role:
+                return jsonify(error="forbidden"), 403
+            g.claims = claims
+            return view(*args, **kwargs)
+
         return wrapped
+
     return decorator
+
+
 def editor_required(view):
     @wraps(view)
     def wrapped(*args, **kwargs):
@@ -147,10 +165,15 @@ def editor_required(view):
         if session.get("role") != "editor":
             abort(403)
         return view(*args, **kwargs)
+
     return wrapped
+
+
 def is_editor_request():
     claims, _ = token_claims()
     return bool(claims and claims.get("role") == "editor")
+
+
 # ---------------------------------------------------------------- validation
 def validate_article(data, partial=False):
     errors = {}
@@ -160,7 +183,7 @@ def validate_article(data, partial=False):
             errors["title"] = "Title is required."
         else:
             length = len(title.strip())
-            too_long = length > 120 and not BUGS # planted bug: max length not enforced
+            too_long = length > 120 and not BUGS  # planted bug: max length not enforced
             if length < 3 or too_long:
                 errors["title"] = "Title must be 3-120 characters."
     if not partial or "body" in data:
@@ -169,15 +192,17 @@ def validate_article(data, partial=False):
             errors["body"] = "Body is required."
         elif len(body) > 10000:
             errors["body"] = "Body must be 10000 characters or fewer."
-        if not partial or "status" in data:
-            if data.get("status", "draft") not in VALID_STATUSES:
-                errors["status"] = "Status must be 'draft' or 'published'."
+    if not partial or "status" in data:
+        if data.get("status", "draft") not in VALID_STATUSES:
+            errors["status"] = "Status must be 'draft' or 'published'."
     return errors
+
+
 # ---------------------------------------------------------------- security headers
 @app.after_request
 def add_security_headers(response):
     csp = "default-src 'self'; img-src 'self' data:; form-action 'self'"
-    if not BUGS: # planted bug: clickjacking protection missing
+    if not BUGS:  # planted bug: clickjacking protection missing
         response.headers["X-Frame-Options"] = "DENY"
         csp += "; frame-ancestors 'none'"
     response.headers["Content-Security-Policy"] = csp
@@ -187,14 +212,19 @@ def add_security_headers(response):
     if request.path.startswith("/api/"):
         response.headers["Cache-Control"] = "no-store"
     return response
+
+
 # ---------------------------------------------------------------- error handlers
 def wants_json():
     return request.path.startswith("/api/")
+
+
 @app.errorhandler(403)
 def forbidden(_err):
     if wants_json():
         return jsonify(error="forbidden"), 403
     return render_template("error.html", code=403, message="You do not have access."), 403
+
 
 @app.errorhandler(404)
 def not_found(_err):
@@ -202,16 +232,21 @@ def not_found(_err):
         return jsonify(error="not_found"), 404
     return render_template("error.html", code=404, message="Page not found."), 404
 
+
 @app.errorhandler(405)
 def method_not_allowed(_err):
     if wants_json():
         return jsonify(error="method_not_allowed"), 405
     return render_template("error.html", code=405, message="Method not allowed."), 405
+
+
 @app.errorhandler(500)
 def server_error(_err):
     if wants_json():
         return jsonify(error="internal_error"), 500
     return render_template("error.html", code=500, message="Something went wrong."), 500
+
+
 # ---------------------------------------------------------------- web pages
 @app.get("/")
 def home():
@@ -219,6 +254,8 @@ def home():
         "SELECT id, title FROM articles WHERE status = 'published' ORDER BY id DESC"
     ).fetchall()
     return render_template("home.html", articles=rows)
+
+
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
@@ -234,11 +271,14 @@ def login():
         return render_template("login.html", error=error), status_code
     return render_template("login.html", error=None)
 
+
 @app.post("/logout")
 def logout():
     session.clear()
     flash("Signed out.")
     return redirect(url_for("home"))
+
+
 @app.get("/articles/<int:article_id>")
 def view_article(article_id):
     article = find_article(article_id)
@@ -247,6 +287,8 @@ def view_article(article_id):
     if article["status"] != "published" and session.get("role") != "editor":
         abort(404)
     return render_template("article.html", article=article)
+
+
 @app.route("/editor/articles/new", methods=["GET", "POST"])
 @editor_required
 def new_article():
@@ -261,13 +303,15 @@ def new_article():
                 "INSERT INTO articles (title, body, status, author, created_at) "
                 "VALUES (?, ?, ?, ?, ?)",
                 (form["title"].strip(), form["body"], form["status"], session["user"],
-                time.time()),
+                 time.time()),
             )
             db.commit()
             flash("Article created.")
             return redirect(url_for("view_article", article_id=cursor.lastrowid))
-        status_code = 400 if errors else 200
-        return render_template("editor.html", form=form, errors=errors), status_code
+    status_code = 400 if errors else 200
+    return render_template("editor.html", form=form, errors=errors), status_code
+
+
 @app.get("/search")
 def search():
     q = request.args.get("q", "").strip()
@@ -278,12 +322,15 @@ def search():
             "ORDER BY id DESC",
             (f"%{q}%",),
         ).fetchall()
-    display_q = Markup(q) if BUGS else q # planted bug: reflected XSS
+    display_q = Markup(q) if BUGS else q  # planted bug: reflected XSS
     return render_template("search.html", q=q, display_q=display_q, results=results)
+
+
 # ---------------------------------------------------------------- REST API
 @app.get("/api/health")
 def api_health():
     return jsonify(status="ok", version=VERSION)
+
 
 @app.post("/api/auth/token")
 def api_token():
@@ -295,6 +342,7 @@ def api_token():
         return jsonify(error=error), status_code
     token = serializer.dumps({"user": user["username"], "role": user["role"]})
     return jsonify(token=token, expires_in=TOKEN_MAX_AGE)
+
 
 @app.get("/api/articles")
 def api_list_articles():
@@ -325,12 +373,14 @@ def api_list_articles():
     items = [dict(row) for row in rows]
     return jsonify(items=items, count=len(items))
 
+
 @app.get("/api/articles/<int:article_id>")
 def api_get_article(article_id):
     article = find_article(article_id)
     if article is None or (article["status"] != "published" and not is_editor_request()):
         return jsonify(error="not_found"), 404
     return jsonify(dict(article))
+
 
 @app.post("/api/articles")
 @require_token(role="editor")
@@ -345,7 +395,7 @@ def api_create_article():
     cursor = db.execute(
         "INSERT INTO articles (title, body, status, author, created_at) VALUES (?, ?, ?, ?, ?)",
         (data["title"].strip(), data["body"], data.get("status", "draft"),
-        g.claims["user"], time.time()),
+         g.claims["user"], time.time()),
     )
     db.commit()
     article = dict(find_article(cursor.lastrowid))
@@ -353,6 +403,7 @@ def api_create_article():
     response.status_code = 201
     response.headers["Location"] = url_for("api_get_article", article_id=article["id"])
     return response
+
 
 @app.put("/api/articles/<int:article_id>")
 @require_token(role="editor")
@@ -376,6 +427,8 @@ def api_update_article(article_id):
         )
         db.commit()
     return jsonify(dict(find_article(article_id)))
+
+
 @app.delete("/api/articles/<int:article_id>")
 @require_token(role="editor")
 def api_delete_article(article_id):
@@ -385,19 +438,26 @@ def api_delete_article(article_id):
     db.execute("DELETE FROM articles WHERE id = ?", (article_id,))
     db.commit()
     return "", 204
+
+
 @app.get("/api/reports/popular")
 def api_popular_report():
-    time.sleep(0.6 if BUGS else 0.05) # simulates a heavy query; planted perf bug when BUGS=1
+    time.sleep(0.6 if BUGS else 0.05)  # simulates a heavy query; planted perf bug when BUGS=1
     rows = get_db().execute(
         "SELECT status, COUNT(*) AS total FROM articles GROUP BY status"
     ).fetchall()
     return jsonify(totals={row["status"]: row["total"] for row in rows})
+
+
 class QuietRequestHandler(WSGIRequestHandler):
     """Dev server handler that hides the Werkzeug/Python versions in the Server header."""
+
     def version_string(self):
         return "content-portal"
 
+
 init_db()
+
 if __name__ == "__main__":
     app.run(
         host="127.0.0.1",

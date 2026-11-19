@@ -1,22 +1,24 @@
 {% extends "base.html" %}
 {% block title %}New article | Content Portal{% endblock %}
 {% block content %}
-<h1>New article</h1><form method="post" action="{{ url_for('new_article') }}" class="stack" novalidate>
-<label for="title">Title</label>
-<input id="title" name="title" type="text" value="{{ form['title'] }}" required
-aria-describedby="title-error" data-testid="title-input">
-<span id="title-error" class="field-error" data-testid="title-error">{{ errors.get('title', '') }}
-</span>
-<label for="body">Body</label>
-<textarea id="body" name="body" rows="6" required aria-describedby="body-error"
-data-testid="body-input">{{ form['body'] }}</textarea>
-<span id="body-error" class="field-error" data-testid="body-error">{{ errors.get('body', '') }}</span>
-<label for="status">Status</label>
-<select id="status" name="status" data-testid="status-select">
-<option value="draft" {% if form['status'] == 'draft' %}selected{% endif %}>Draft</option>
-<option value="published" {% if form['status'] == 'published' %}selected{% endif
-%}>Published</option>
-</select>
-<button type="submit" data-testid="save-article">Save article</button>
-</form>
+  <h1>New article</h1>
+  <form method="post" action="{{ url_for('new_article') }}" class="stack" novalidate>
+    <label for="title">Title</label>
+    <input id="title" name="title" type="text" value="{{ form['title'] }}" required
+           aria-describedby="title-error" data-testid="title-input">
+    <span id="title-error" class="field-error" data-testid="title-error">{{ errors.get('title', '') }}</span>
+
+    <label for="body">Body</label>
+    <textarea id="body" name="body" rows="6" required aria-describedby="body-error"
+              data-testid="body-input">{{ form['body'] }}</textarea>
+    <span id="body-error" class="field-error" data-testid="body-error">{{ errors.get('body', '') }}</span>
+
+    <label for="status">Status</label>
+    <select id="status" name="status" data-testid="status-select">
+      <option value="draft" {% if form['status'] == 'draft' %}selected{% endif %}>Draft</option>
+      <option value="published" {% if form['status'] == 'published' %}selected{% endif %}>Published</option>
+    </select>
+
+    <button type="submit" data-testid="save-article">Save article</button>
+  </form>
 {% endblock %}

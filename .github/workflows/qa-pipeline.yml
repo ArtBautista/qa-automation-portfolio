@@ -14,6 +14,41 @@ env:
   PYTHON_VERSION: "3.11"
   BASE_URL: http://127.0.0.1:5000
 jobs:
+  ui-test:
+  name: UI tests (${{ matrix.browser }})
+  needs: api-tests
+  runs-on: ubuntu-latest
+  strategy:
+    fail-fast: false
+    matrix:
+    browser: [chrome, firefox]
+  steps:
+    teps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5v
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: pip
+    - run: pip install -r requirements.txt
+    - name: Start Content Portal
+      run: bash scripts/start_app.sh
+    - name: Run UI tests
+    run: >
+      pytest tests/ui -m "not drupal"
+      --browser ${{ matrix.browser }} --headless
+      --junitxml=reports/ui-${{ matrix.browser }}-junit.xml
+      --html=reports/ui-${{ matrix.browser }}-report.html --self-contained-html
+    - name: Job summary
+      if: always()
+      run: >
+        python scripts/junit_summary.py reports/ui-${{ matrix.browser }}-junit.xml
+        >> "$GITHUB_STEP_SUMMARY"
+    - name: Upload UI report and screenshots
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: ui-report-${{ matrix.browser }}
+        path: reports/
   lint:
   name: Lint
   runs-on: ubuntu-latest
