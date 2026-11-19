@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}{{ article['title'] }} | Content Portal{% endblock %}
+{% block content %}
+<article>
+<h1 data-testid="article-title">{{ article['title'] }}</h1>
+<p class="badge" data-testid="article-status">{{ article['status'] }}</p>
+<div data-testid="article-body"><p>{{ article['body'] }}</p></div>
+<p class="meta">By {{ article['author'] }}</p>
+</article>
+{% endblock %}

@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Content Portal{% endblock %}</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <header class="site-header">
+    <a class="brand" href="{{ url_for('home') }}" data-testid="nav-home">Content Portal</a>
+    <nav aria-label="Main">
+        <a href="{{ url_for('search') }}" data-testid="nav-search">Search</a>
+        {% if session.get('user') %}
+            {% if session.get('role') == 'editor' %}
+                <a href="{{ url_for('new_article') }}" data-testid="nav-new-article">New article</a>
+            {% endif %}
+            <span data-testid="nav-user">Signed in as {{ session['user'] }}</span>
+            <form method="post" action="{{ url_for('logout') }}" class="inline">
+                <button type="submit" data-testid="logout-button">Sign out</button>
+            </form>
+        {% else %}
+            <a href="{{ url_for('login') }}" data-testid="nav-login">Sign in</a>
+        {% endif %}
+    </nav>
+    </header>
+<main id="main">
+    {% with messages = get_flashed_messages() %}
+    {% if messages %}
+            <div class="flash" role="status" data-testid="flash">
+                {% for message in messages %}<p>{{ message }}</p>{% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+</main>
+    <footer class="site-footer">
+        <p>Content Portal v1.0 - QA practice application</p>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Latest articles | Content Portal{% endblock %}
+{% block content %}
+<h1>Latest articles</h1>
+{% if articles %}
+<ul class="cards" data-testid="article-list">
+{% for article in articles %}
+<li class="card" data-testid="article-card">
+<a href="{{ url_for('view_article', article_id=article['id']) }}"
+data-testid="article-link">{{ article['title'] }}</a>
+</li>
+{% endfor %}
+</ul>
+{% else %}
+<p data-testid="empty-state">No articles published yet.</p>
+{% endif %}
+{% endblock %}

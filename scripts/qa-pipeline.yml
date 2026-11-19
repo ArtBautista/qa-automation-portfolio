@@ -1,0 +1,54 @@
+name: QA Pipeline
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "0 18 * * *" # 02:00 Manila time, nightly regression
+  workflow_dispatch:
+concurrency:
+  group: qa-${{ github.ref }}
+  cancel-in-progress: true
+env:
+  PYTHON_VERSION: "3.11"
+  BASE_URL: http://127.0.0.1:5000
+jobs:
+  lint:
+  name: Lint
+  runs-on: ubuntu-latest
+  steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: pip
+    - run: pip install -r requirements.txt
+    - run: ruff check .
+  api-tests:
+    name: API tests
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Start Content Portal
+        run: bash scripts/start_app.sh
+      - name: Run API tests
+        run: >
+          pytest tests/api
+          --junitxml=reports/api-junit.xml
+          --html=reports/api-report.html --self-contained-html
+      - name: Job summary
+        if: always()
+        run: python scripts/junit_summary.py reports/api-junit.xml >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload API report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-report
+          path: reports/

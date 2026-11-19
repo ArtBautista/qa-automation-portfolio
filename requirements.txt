@@ -1,0 +1,9 @@
+flask>=3.0,<4
+waitress>=3.0
+requests>=2.32
+pytest>=8.2
+pytest-html>=4.1
+selenium>=4.21
+axe-selenium-python>=2.1.6
+locust>=2.29
+ruff>=0.6

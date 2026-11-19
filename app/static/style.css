@@ -1,0 +1,20 @@
+body { margin: 0; font-family: system-ui, Arial, sans-serif; color: #1a1a1a; background: #ffffff; }
+.site-header { display: flex; justify-content: space-between; align-items: center;
+padding: 12px 24px; background: #0b3d91; }
+.site-header a, .site-header span { color: #ffffff; margin-left: 16px; }
+.brand { font-weight: 700; margin-left: 0 !important; text-decoration: none; }
+main { max-width: 760px; margin: 24px auto; padding: 0 16px; }
+.inline { display: inline; margin-left: 16px; }
+.stack { display: flex; flex-direction: column; gap: 6px; max-width: 420px; }
+input, textarea, select { padding: 8px; border: 1px solid #5f6368; border-radius: 4px; font: inherit; }
+button { padding: 8px 14px; background: #0b57d0; color: #ffffff; border: 0; border-radius: 4px;
+    font: inherit; cursor: pointer; }
+a { color: #0b57d0; }
+.cards { list-style: none; padding: 0; }
+.card { padding: 12px; border: 1px solid #dadce0; border-radius: 6px; margin-bottom: 8px; }
+.flash { background: #e6f4ea; color: #0d5223; padding: 8px 12px; border-radius: 4px; }
+.error, .field-error { color: #b3261e; }
+.badge { display: inline-block; background: #e8eaed; color: #202124; padding: 2px 8px;
+border-radius: 10px; }
+.meta { color: #4d4d4d; }
+.site-footer { text-align: center; color: #4d4d4d; padding: 24px; }

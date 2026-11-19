@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Search | Content Portal{% endblock %}
+{% block content %}
+<h1>Search</h1>
+<form method="get" action="{{ url_for('search') }}" role="search" class="stack">
+<label for="q">Search articles</label>
+<input id="q" name="q" type="search" value="{{ q }}" data-testid="search-input">
+<button type="submit" data-testid="search-submit">Search</button>
+</form>
+{% if q %}
+<p data-testid="search-summary">{{ results|length }} results for "{{ display_q }}"</p>
+<ul class="cards">
+{% for article in results %}
+<li class="card" data-testid="search-result">
+<a href="{{ url_for('view_article', article_id=article['id']) }}">{{ article['title'] }}</a>
+</li>
+{% endfor %}
+</ul>
+{% endif %}
+{% endblock %}
