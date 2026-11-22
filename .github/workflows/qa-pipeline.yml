@@ -30,6 +30,37 @@ jobs:
       - run: pip install -r requirements.txt
       - run: ruff check .
 
+  performance-smoke:
+    name: Performance smoke (Locust)
+    needs: api-tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Start Content Portal (waitress)
+        run: bash scripts/start_app.sh waitress
+      - name: Run Locust (20 users, 45 s)
+        run: >
+          locust -f perf/locustfile.py --headless
+          --users 20 --spawn-rate 5 --run-time 45s
+          --host "$BASE_URL"
+          --csv reports/perf --html reports/perf-report.html
+          --exit-code-on-error 0 --only-summary
+      - name: Check performance budget
+          run: >
+            python perf/check_thresholds.py reports/perf_stats.csv
+            --p95-ms 500 --endpoint-p95-ms 500 --max-failure-ratio 0.01
+      - name: Upload performance report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-report
+          path: reports/
+
   api-tests:
     name: API tests
     needs: lint
