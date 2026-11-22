@@ -30,6 +30,44 @@ jobs:
       - run: pip install -r requirements.txt
       - run: ruff check .
 
+  security-tests:
+    name: Security tests + ZAP baseline
+    needs: api-tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Start Content Portal
+        run: bash scripts/start_app.sh
+      - name: Run security tests
+        run: >
+          pytest tests/security
+          --junitxml=reports/security-junit.xml
+          --html=reports/security-report.html --self-contained-html
+      - name: OWASP ZAP baseline scan
+        run: |
+          mkdir -p zap
+          cp .zap/rules.tsv zap/rules.tsv
+          chmod -R 777 zap
+          docker run --rm --network host -v "${{ github.workspace }}/zap:/zap/wrk:rw" \
+            ghcr.io/zaproxy/zaproxy:stable zap-baseline.py \
+            -t http://127.0.0.1:5000 -c rules.tsv -r zap-report.html -J zap-report.json -I
+      - name: Job summary
+        if: always()
+        run: python scripts/junit_summary.py reports/security-junit.xml >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload security reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-reports
+          path: |
+            reports/
+            zap/
+
   api-tests:
     name: API tests
     needs: lint

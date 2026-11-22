@@ -1,0 +1,74 @@
+// Jenkins declarative pipeline (needs the Docker Pipeline and JUnit plugins).
+pipeline {
+  agent {
+    docker {
+      image 'python:3.11-bookworm'
+      args '-u root --shm-size=2g'
+    }
+  }
+  options {
+    timestamps()
+    timeout(time: 30, unit: 'MINUTES')
+    buildDiscarder(logRotator(numToKeepStr: '20'))
+  }
+  environment {
+    BASE_URL          = 'http://127.0.0.1:5000'
+    CHROME_BINARY     = '/usr/bin/chromium'
+    CHROMEDRIVER_PATH = '/usr/bin/chromedriver'
+  }
+  stages {
+    stage('Setup') {
+      steps {
+        sh '''
+          apt-get update
+          apt-get install -y --no-install-recommends chromium chromium-driver
+          pip install -r requirements.txt
+        '''
+      }
+    }
+    stage('Lint') {
+      steps { sh 'ruff check .' }
+    }
+    stage('Start app') {
+      steps {
+        // JENKINS_NODE_COOKIE stops Jenkins from killing the background server after this step
+        sh 'JENKINS_NODE_COOKIE=dontKillMe bash scripts/start_app.sh waitress'
+      }
+    }
+    stage('API tests') {
+      steps { sh 'pytest tests/api --junitxml=reports/api-junit.xml' }
+    }
+    stage('UI and security') {
+      parallel {
+        stage('UI tests (Chrome)') {
+          steps {
+            sh '''
+              pytest tests/ui -m "not drupal" --browser chrome --headless \
+                --junitxml=reports/ui-junit.xml \
+                --html=reports/ui-report.html --self-contained-html
+            '''
+          }
+        }
+        stage('Security tests') {
+          steps { sh 'pytest tests/security --junitxml=reports/security-junit.xml' }
+        }
+      }
+    }
+    stage('Performance smoke') {
+      steps {
+        sh '''
+          locust -f perf/locustfile.py --headless -u 20 -r 5 -t 45s --host "$BASE_URL" \
+            --csv reports/perf --exit-code-on-error 0 --only-summary
+          python perf/check_thresholds.py reports/perf_stats.csv \
+            --p95-ms 500 --endpoint-p95-ms 500 --max-failure-ratio 0.01
+        '''
+      }
+    }
+  }
+  post {
+    always {
+      junit allowEmptyResults: true, testResults: 'reports/*-junit.xml'
+      archiveArtifacts artifacts: 'reports/**', allowEmptyArchive: true
+    }
+  }
+}
